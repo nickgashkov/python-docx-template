@@ -250,7 +250,7 @@ class DocxTemplate(object):
     def map_headers_footers_xml(self, relKey, xml):
         self.docx._part._rels[relKey]._target._blob = xml
 
-    def render(self, context, jinja_env=None, autoescape=False):
+    def render(self, context, jinja_env=None, autoescape=False, discard_cell_width=False):
         if autoescape:
             if not jinja_env:
                 jinja_env = Environment(autoescape=autoescape)
@@ -261,7 +261,7 @@ class DocxTemplate(object):
         xml_src = self.build_xml(context, jinja_env)
 
         # fix tables if needed
-        tree = self.fix_tables(xml_src)
+        tree = self.fix_tables(xml_src, discard_cell_width)
 
         self.map_tree(tree)
 
@@ -279,12 +279,17 @@ class DocxTemplate(object):
 
     # using of TC tag in for cycle can cause that count of columns does not
     # correspond to real count of columns in row. This function is able to fix it.
-    def fix_tables(self, xml):
+    def fix_tables(self, xml, discard_cell_width):
         parser = etree.XMLParser(recover=True)
         tree = etree.fromstring(xml, parser=parser)
         # get namespace
         ns = '{' + tree.nsmap['w'] + '}'
         # walk trough xml and find table
+
+        if discard_cell_width:
+            for tc_w in tree.xpath('.//w:tcW', namespaces=tree.nsmap):
+                tc_w.getparent().remove(tc_w)
+
         for t in tree.iter(ns+'tbl'):
             tblGrid = t.find(ns+'tblGrid')
             columns = tblGrid.findall(ns+'gridCol')
